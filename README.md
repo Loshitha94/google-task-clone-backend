@@ -4,4 +4,5 @@
 0.1.0
 
 # License
-Copyrights 2022 All Rights receive for DEP8
+Copyrights 2022 All Rights receive for DEP8.
+this project is license under [MIT](LICENSE.txt)
