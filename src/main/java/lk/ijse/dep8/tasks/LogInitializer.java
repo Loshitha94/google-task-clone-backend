@@ -24,8 +24,10 @@ import java.util.logging.Logger;
 public class LogInitializer implements ServletContextListener {
     private final Logger logger = Logger.getLogger(LogInitializer.class.getName());
     private FileHandler fileHandler;
+
     @Override
     public void contextInitialized(ServletContextEvent sce) {
+
         try {
             final Properties prop = new Properties();
             prop.load(this.getClass().getResourceAsStream("/application.properties"));
@@ -57,20 +59,21 @@ public class LogInitializer implements ServletContextListener {
             installFileHandler(getPath(path));
 
             ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-            executor.scheduleWithFixedDelay(() -> installFileHandler(path),
+            executor.scheduleWithFixedDelay(() -> installFileHandler(getPath(path)),
                     Duration.between(LocalTime.now(), LocalTime.MIDNIGHT).toMillis(),
                     60 * 60 * 1000 * 24, TimeUnit.MILLISECONDS);
 
         } catch (IOException e) {
             logger.log(Level.SEVERE, e.getMessage(), e);
         }
+
     }
 
     private String getPath(String logDirPath){
         return logDirPath+ File.separator + LocalDate.now() + "-tasks-log-%g.log";
     }
 
-    private void installFileHandler(String path){
+    private void installFileHandler(String path) {
         if (fileHandler != null){
             fileHandler.close();
             Logger.getLogger("").removeHandler(fileHandler);
