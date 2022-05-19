@@ -4,6 +4,7 @@ import jakarta.json.bind.Jsonb;
 import jakarta.json.bind.JsonbBuilder;
 import lk.ijse.dep8.dto.UserDTO;
 import lk.ijse.dep8.tasks.DBInitializer;
+import lk.ijse.dep8.tasks.util.HttpServlet2;
 import lk.ijse.dep8.tasks.util.ResponseStatusException;
 import org.apache.commons.codec.digest.DigestUtils;
 
@@ -29,7 +30,7 @@ import java.util.UUID;
 import java.util.logging.Logger;
 @MultipartConfig(location = "/tmp",maxFileSize =10*1024*1024)
 @WebServlet(name = "UserServlet",value ={"/v1/users/*"})
-public class UserServlet extends HttpServlet {
+public class UserServlet extends HttpServlet2 {
 
     private final Logger logger = Logger.getLogger(UserServlet.class.getName());
 
@@ -89,12 +90,12 @@ public class UserServlet extends HttpServlet {
         }
 
         Connection connection = null;
-        try{
+        try {
             connection = pool.getConnection();
 
             PreparedStatement stm = connection.prepareStatement("SELECT id FROM user WHERE email = ?");
             stm.setString(1, email);
-            if (stm.executeQuery().next()){
+            if (stm.executeQuery().next()) {
                 throw new ResponseStatusException(HttpServletResponse.SC_CONFLICT, "A user has been already registered with this email");
             }
 
@@ -108,26 +109,31 @@ public class UserServlet extends HttpServlet {
             stm.setString(3, DigestUtils.sha256Hex(password));
             stm.setString(4, name);
 
-            String pictureUrl = request.getScheme() + "://" + request.getServerName() + ":"
-                    + request.getServerPort() + request.getContextPath();
-            pictureUrl += "/uploads/" + id ;
-
+            String pictureUrl = null;
+            if (picture != null) {
+                pictureUrl = request.getScheme() + "://" + request.getServerName() + ":"
+                        + request.getServerPort() + request.getContextPath();
+                pictureUrl += "/uploads/" + id;
+            }
             stm.setString(5, pictureUrl);
+
             if (stm.executeUpdate() != 1) {
                 throw new SQLException("Failed to register the user");
             }
 
-            String appLocation = getServletContext().getRealPath("/");
-            Path path = Paths.get(appLocation, "uploads");
-            if (Files.notExists(path)) {
-                Files.createDirectory(path);
-            }
+            if (picture != null) {
+                String appLocation = getServletContext().getRealPath("/");
+                Path path = Paths.get(appLocation, "uploads");
+                if (Files.notExists(path)) {
+                    Files.createDirectory(path);
+                }
 
-            String picturePath = path.resolve(id).toAbsolutePath().toString();
-            picture.write(picturePath);
+                String picturePath = path.resolve(id).toAbsolutePath().toString();
+                picture.write(picturePath);
 
-            if (Files.notExists(Paths.get(picturePath))){
-                throw new ResponseStatusException(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to save the picture");
+                if (Files.notExists(Paths.get(picturePath))) {
+                    throw new ResponseStatusException(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to save the picture");
+                }
             }
 
             connection.commit();
@@ -139,9 +145,9 @@ public class UserServlet extends HttpServlet {
             jsonb.toJson(userDTO, response.getWriter());
         } catch (SQLException e) {
             throw new ResponseStatusException(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to register the user", e);
-        }finally{
+        } finally {
             try {
-                if (!connection.getAutoCommit()){
+                if (!connection.getAutoCommit()) {
                     connection.rollback();
                     connection.setAutoCommit(true);
                 }
@@ -158,5 +164,107 @@ public class UserServlet extends HttpServlet {
         Jsonb jsonb = JsonbBuilder.create();
         resp.setContentType("application/json");
         jsonb.toJson(user, resp.getWriter());
+    }
+
+    @Override
+    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        UserDTO user = getUser(req);
+        try (Connection connection = pool.getConnection()) {
+            PreparedStatement stm = connection.prepareStatement("DELETE FROM user WHERE id=?");
+            stm.setString(1, user.getId());
+            if (stm.executeUpdate() != 1) {
+                throw new SQLException("Failed to delete the user");
+            }
+            resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
+
+            new Thread(()->{
+               Path imagePath= Paths.get(getServletContext().getRealPath("/"),"uploads",user.getId());
+                try {
+                    Files.deleteIfExists(imagePath);
+                } catch (IOException e) {
+                    logger.warning("Failed to delete the image "+imagePath.toAbsolutePath());
+                }
+            }).start();
+        } catch (SQLException e) {
+            throw new ResponseStatusException(500, e.getMessage(), e);
+        }
+    }
+
+    @Override
+    protected void doPatch(HttpServletRequest request, HttpServletResponse resp) throws ServletException, IOException {
+        if (request.getContentType() == null || !request.getContentType().startsWith("multipart/form-data")) {
+            throw new ResponseStatusException(HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE, "Invalid content type or no content type is provided");
+        }
+
+        UserDTO user = getUser(request);
+
+        String name = request.getParameter("name");
+        String password = request.getParameter("password");
+        Part picture = request.getPart("picture");
+
+        if (name == null || !name.matches("[A-Za-z ]+")) {
+            throw new ResponseStatusException(HttpServletResponse.SC_BAD_REQUEST, "Invalid name or name is empty");
+        } else if (password == null || password.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpServletResponse.SC_BAD_REQUEST, "Password can't be empty");
+        } else if (picture != null && !picture.getContentType().startsWith("image")) {
+            throw new ResponseStatusException(HttpServletResponse.SC_BAD_REQUEST, "Invalid picture");
+        }
+
+        Connection connection = null;
+        try {
+            connection = pool.getConnection();
+            connection.setAutoCommit(false);
+
+            PreparedStatement stm = connection.prepareStatement("UPDATE user SET full_name=?, password=?, profile_pic=? WHERE id=?");
+            stm.setString(1, name);
+            stm.setString(2, DigestUtils.sha256Hex(password));
+
+            String pictureUrl = null;
+            if (picture != null) {
+                pictureUrl = request.getScheme() + "://" + request.getServerName() + ":"
+                        + request.getServerPort() + request.getContextPath();
+                pictureUrl += "/uploads/" + user.getId();
+            }
+            stm.setString(3, pictureUrl);
+            stm.setString(4, user.getId());
+
+            if (stm.executeUpdate() != 1) {
+                throw new SQLException("Failed to update the user");
+            }
+
+            String appLocation = getServletContext().getRealPath("/");
+            Path path = Paths.get(appLocation, "uploads");
+            String picturePath = path.resolve(user.getId()).toAbsolutePath().toString();
+
+            if (picture != null) {
+                if (Files.notExists(path)) {
+                    Files.createDirectory(path);
+                }
+
+                Files.deleteIfExists(Paths.get(picturePath));
+                picture.write(picturePath);
+
+                if (Files.notExists(Paths.get(picturePath))) {
+                    throw new ResponseStatusException(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to save the picture");
+                }
+            } else {
+                Files.deleteIfExists(Paths.get(picturePath));
+            }
+
+            connection.commit();
+            resp.setStatus(204);
+        } catch (SQLException e) {
+            throw new ResponseStatusException(500, e.getMessage(), e);
+        } finally {
+            try {
+                if (!connection.getAutoCommit()) {
+                    connection.rollback();
+                    connection.setAutoCommit(true);
+                }
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

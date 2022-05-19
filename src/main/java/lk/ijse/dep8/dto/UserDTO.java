@@ -1,5 +1,6 @@
 package lk.ijse.dep8.dto;
 
+import jakarta.json.bind.annotation.JsonbProperty;
 import jakarta.json.bind.annotation.JsonbTransient;
 
 import java.io.Serializable;
@@ -55,7 +56,7 @@ public class UserDTO implements Serializable {
     public void setPassword(String password) {
         this.password = password;
     }
-
+    @JsonbProperty(nillable = true)
     public String getPicture() {
         return picture;
     }
