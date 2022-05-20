@@ -24,6 +24,13 @@ import java.util.logging.Logger;
 public class LogInitializer implements ServletContextListener {
     private final Logger logger = Logger.getLogger(LogInitializer.class.getName());
     private FileHandler fileHandler;
+    ScheduledExecutorService executor;
+
+    @Override
+    public void contextDestroyed(ServletContextEvent sce) {
+        executor.shutdownNow();
+    }
+
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
@@ -58,7 +65,7 @@ public class LogInitializer implements ServletContextListener {
             final String path = logDirPath.toAbsolutePath().toString();
             installFileHandler(getPath(path));
 
-            ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+            executor = Executors.newSingleThreadScheduledExecutor();
             executor.scheduleWithFixedDelay(() -> installFileHandler(getPath(path)),
                     Duration.between(LocalTime.now(), LocalTime.MIDNIGHT).toMillis(),
                     60 * 60 * 1000 * 24, TimeUnit.MILLISECONDS);
