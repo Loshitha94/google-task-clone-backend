@@ -1,23 +1,33 @@
 package lk.ijse.dep8.dto;
 
+import jakarta.json.bind.annotation.JsonbTransient;
+
 public class TaskListDTO {
-    private String id;
+    private Integer id;
     private String title;
+    @JsonbTransient
+    private String userId;
+
 
     public TaskListDTO() {
 
     }
 
-    public TaskListDTO(String id, String title) {
+    public TaskListDTO(Integer id, String title) {
         this.id = id;
         this.title = title;
     }
+    public TaskListDTO(Integer id, String title, String userId) {
+        this.id = id;
+        this.title = title;
+        this.userId = userId;
+    }
 
-    public String getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
