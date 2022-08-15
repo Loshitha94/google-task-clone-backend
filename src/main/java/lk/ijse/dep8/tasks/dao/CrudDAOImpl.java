@@ -16,8 +16,6 @@ public class CrudDAOImpl <T extends SuperEntity, ID extends Serializable> implem
     public CrudDAOImpl() {
         this.entityClsObj =  (Class<T>) (((ParameterizedType) (this.getClass().getGenericSuperclass())).getActualTypeArguments()[0]);
     }
-
-
     @Override
     public boolean existById(ID pk) {
         return findById(pk).isPresent();

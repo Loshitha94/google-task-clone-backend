@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
-public class CustomerEntity implements SuperEntity{
+public class CustomEntity implements SuperEntity{
     private int taskListId;
     private String taskListName;
     private String userName;
