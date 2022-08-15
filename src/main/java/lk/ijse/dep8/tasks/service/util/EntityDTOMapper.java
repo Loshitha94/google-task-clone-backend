@@ -51,6 +51,7 @@ public class EntityDTOMapper {
         return mapper.typeMap(TaskDTO.class, Task.class)
                 .addMapping(TaskDTO::getNotes, Task::setDetails)
                 .map(taskDTO);
+
     }
 
 }
