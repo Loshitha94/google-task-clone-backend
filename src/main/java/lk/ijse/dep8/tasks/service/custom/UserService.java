@@ -13,7 +13,7 @@ public interface UserService {
                          );
     UserDTO getUser(String userIdOrEmail);
 
-    void deleteUSer(String userId, String appLocation);
+    void deleteUser(String userId, String appLocation);
 
     void updateUser(UserDTO user, Part picture,
                     String appLocation);

@@ -13,6 +13,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 
 import javax.persistence.EntityManager;
 import javax.servlet.http.Part;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -90,8 +91,29 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void deleteUSer(String userId, String appLocation) {
+    public void deleteUser(String userId, String appLocation) {
+        EntityManager em = JPAUtil.getEntityManagerFactory().createEntityManager();
+        try {
+            em.getTransaction().begin();
+            UserDAO userDAO = DAOFactory.getInstance().getDAO(em, DAOFactory.DAOTypes.USER);
+            userDAO.deleteById(userId);
+            em.getTransaction().commit();
 
+            new Thread(() -> {
+                Path imagePath = Paths.get(appLocation, "uploads",
+                        userId);
+                try {
+                    Files.deleteIfExists(imagePath);
+                } catch (IOException e) {
+                    logger.warning("Failed to delete the image: " + imagePath.toAbsolutePath());
+                }
+            }).start();
+        } catch (Throwable t) {
+            if (em != null && em.getTransaction() != null) em.getTransaction().rollback();
+            throw new FailedExecutionException("Failed to delete the user", t);
+        } finally {
+            em.close();
+        }
     }
 
     @Override

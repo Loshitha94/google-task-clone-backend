@@ -112,6 +112,14 @@ public class UserServlet extends HttpServlet2 {
 
     @Override
     protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        super.doDelete(req, resp);
+        UserDTO user = getUser(req);
+        try  {
+            UserService userService = ServiceFactory.getInstance().getService(ServiceFactory.ServiceTypes.USER);
+            userService.deleteUser(user.getId(),
+                    getServletContext().getRealPath("/"));
+            resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
+        } catch (Throwable e) {
+            throw new ResponseStatusException(500, e.getMessage(), e);
+        }
     }
 }
