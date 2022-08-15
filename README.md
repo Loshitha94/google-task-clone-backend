@@ -7,5 +7,5 @@
 1.0.0
 
 ### License
-Copyright © 2022 DEP8. All Rights Reserved. <br>
+Copyright © 2022 Loshitha Hasaral. All Rights Reserved. <br>
 This project is licensed under the [MIT](LICENSE.txt) License.
