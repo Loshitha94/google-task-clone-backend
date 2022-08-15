@@ -16,6 +16,7 @@ import javax.servlet.http.Part;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -78,7 +79,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserDTO getUser(String userIdOrEmail) {
-        return null;
+        EntityManager em = JPAUtil.getEntityManagerFactory().createEntityManager();
+        try {
+            UserDAO userDAO = DAOFactory.getInstance().getDAO(em, DAOFactory.DAOTypes.USER);
+            Optional<User> userWrapper = userDAO.findUserByIdOrEmail(userIdOrEmail);
+            return EntityDTOMapper.getUserDTO(userWrapper.orElse(null));
+        } finally {
+            em.close();
+        }
     }
 
     @Override
